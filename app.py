@@ -227,24 +227,25 @@ def main():
         st.subheader("Empréstimos")
         emprestimo_opcoes = st.selectbox("Operação:", ("Adicionar", "Baixa", "Busca"))
 
-        if emprestimo_opcoes == 'Adicionar':
-            
-            if 'clicked' not in st.session_state:
-                st.session_state.clicked = {1:False,2:False,3:False,4:False,5:'Check aluno',6:'Check livro'}
+
+        if 'clicked' not in st.session_state:
+                st.session_state.clicked = {1:False,2:False,3:False,4:False,5:'Check aluno',6:'Check livro', #adicionar empréstimo
+                                            7:False,8:False}
                 st.session_state.disable = True
 
             # função que atualiza o session_state para que os radio buttons não sumam depois do clique 
-            def clicked(button):
-                if button == 5:
-                    st.session_state.clicked[1] = False
-                elif button == 6:
-                    st.session_state.clicked[4] = False
-                else:
-                    st.session_state.clicked[button] = True
-                    if st.session_state.clicked[1] and st.session_state.clicked[3]:
-                        st.session_state.disable = False
+        def clicked(button):
+            if button == 5:
+                st.session_state.clicked[1] = False
+            elif button == 6:
+                st.session_state.clicked[4] = False
+            else:
+                st.session_state.clicked[button] = True
+                if st.session_state.clicked[1] and st.session_state.clicked[3]:
+                    st.session_state.disable = False
 
-            
+        if emprestimo_opcoes == 'Adicionar':
+  
             col_1, col_2 = st.columns(2)
             aluno_escolhido , livro_escolhido = "", ""
             with col_1:                    
@@ -298,7 +299,35 @@ def main():
                     
 
         if emprestimo_opcoes == 'Baixa':
-            pass
+
+            emprestimo_escolhido = ""
+            nome_aluno = st.text_input("Nome do aluno")
+            st.button("Buscar Aluno",on_click=clicked, args=[7])
+            if st.session_state.clicked[7]:
+                if nome_aluno == "":
+                            st.warning("nome deve ser preenchido ou desmarcado.")
+                            all_checks = False
+                else:
+                    sql = f'''SELECT e.id_emprestimo AS 'ID Emp', e.data_emprestimo AS 'Data Emp',
+                            a.nome AS 'Nome Aluno',
+                            a.data_nascimento,
+                            l.nome AS 'Nome livro',
+                            l.id as 'ID livro'
+                            FROM emprestimos as e
+                            INNER JOIN livros as l ON e.id_livro = l.ID
+                            INNER JOIN alunos as a on a.RA = e.ra_aluno
+                            WHERE a.nome LIKE '%{nome_aluno}%' AND e.data_devolucao IS NULL
+                            ORDER BY a.nome;'''
+                    cursor.execute(sql)
+                    myresult = cursor.fetchall()
+                    emprestimos_buscados = []
+                    for result in myresult:
+                        add_empr_buscado = f'{result[0]} - {result[1].strftime("%d/%m/%y %H:%M:%S")} - {result[2]} - {result[3].strftime("%d/%m/%y")} - {result[4]} - {result[5]}'
+                        emprestimos_buscados.append(add_empr_buscado)
+                    emprestimo_escolhido = st.radio("Selecione um empréstimo(ID - Empréstimo -  Aluno - Nascimento - Livro - Id Livro):",
+                                                     options=emprestimos_buscados,  on_change=clicked, args=[8])
+                pass
+
 
         if emprestimo_opcoes == 'Busca':
             pass

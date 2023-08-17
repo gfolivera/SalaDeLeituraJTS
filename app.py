@@ -40,7 +40,7 @@ def main():
     option = st.sidebar.selectbox("Select an operation:", ('Adicionar', 'Buscar', 'Empréstimo', 'Delete'))
     if option == 'Adicionar':
 
-        add_options = st.selectbox("Escolha um tipo de adição:", ("Livro", "Aluno(s)", "Empréstimo"))
+        add_options = st.selectbox("Escolha um tipo de adição:", ("Livro", "Aluno(s)"))
 
         if add_options == "Livro":
             isbn_livro = ""
@@ -149,18 +149,17 @@ def main():
             csv_iterrows()
             query_select()
 
-        if add_options == "Empréstimo":
-            pass
+ 
 
     elif option == 'Buscar':
         # INCLUIR MAIS OPÇÕES DE BUSCA, E ROTULOS PARA AS COLUNAS
-        busca = st.selectbox("Tipo de Busca", ("Livros", "Alunos", "Empréstimos"))
+        options_tuple = ("Livros", "Alunos")
+        busca = st.selectbox("Tipo de Busca", options_tuple)
+        st.subheader(f"Buscar {busca}")
+        st.write("Busca por")
+        checks_container = st.container()
+
         if busca == "Livros":
-
-            st.subheader("Buscar livros")
-            st.write("Busca por")
-            checks_container = st.container()
-
             with checks_container:
                 col_1, col_2, col_3 = st.columns(3)
                 with col_1:
@@ -221,6 +220,28 @@ def main():
                     myresult = cursor.fetchall()
                     df = pd.DataFrame(myresult,
                                       columns=['id', 'Nome do Livro', 'Autor', 'ISBN', 'Edição', 'Disponível'])
+                    tabela.table(df)
+
+        else:
+
+            with checks_container:
+                col_1, col_2 = st.columns(2)
+                with col_1:
+                    check_ra_read = st.checkbox("RA", value=False)
+                with col_2:
+                    check_name_read = st.checkbox("Nome", value=False)
+
+                if check_ra_read:
+                    ra_read = st.text_input("RA",max_chars=9)
+                    df = pd.DataFrame()
+                    ra_read_button = st.button("Buscar RA")
+                    if ra_read_button:
+                        sql = f"SELECT ra, nome, data_nascimento FROM  alunos WHERE ra = '{ra_read}'"
+                        cursor.execute(sql)
+                        myresult = cursor.fetchall()
+                        df = pd.DataFrame(myresult,
+                                    columns=['RA', 'Nome do Aluno', 'Data de Nascimento'])
+                    tabela = st.table()
                     tabela.table(df)
 
     elif option == 'Empréstimo':
@@ -326,7 +347,23 @@ def main():
                         emprestimos_buscados.append(add_empr_buscado)
                     emprestimo_escolhido = st.radio("Selecione um empréstimo(ID - Empréstimo -  Aluno - Nascimento - Livro - Id Livro):",
                                                      options=emprestimos_buscados,  on_change=clicked, args=[8])
-                pass
+                    give_back_button = st.button("Efetuar Devolução")
+                    if give_back_button:
+                        pick_id = ""
+                        pick_id = emprestimo_escolhido.split(" - ")
+                        agora = datetime.datetime.now()
+                        give_back_date = agora.strftime('%y-%m-%d %H:%M:%S')
+                        sql = f"UPDATE emprestimos SET data_devolucao = '{give_back_date}' WHERE id_emprestimo = {pick_id[0]};"
+                        try:
+                            cursor.execute(sql)
+                            st.success("Livro devolvido com sucesso.")
+                        except Exception:
+                            if Exception == IntegrityError:
+                                st.error(f"Erro na execução do comando ao banco de dados. {Exception}")
+                            else:
+                                st.error(Exception)
+
+            
 
 
         if emprestimo_opcoes == 'Busca':

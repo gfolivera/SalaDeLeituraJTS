@@ -4,7 +4,6 @@ import streamlit as st
 import pandas as pd
 import datetime
 
-
 cnx = mysql.connector.connect(user='root', password='root',
                               host='127.0.0.1',
                               database='saladeleiturajts')
@@ -111,45 +110,41 @@ def main():
         if add_options == "Aluno(s)":
             filepath = st.file_uploader("Arquivo CSV", accept_multiple_files=False)
 
-        if st.button("Adicionar"):
+            if st.button("Adicionar"):
 
-            df = pd.read_csv(filepath, sep=';', skiprows=1)
-            st.write(df)
-            insert_list = []
-            str_nomes = ""
-            ja_cadastrados = []
+                df = pd.read_csv(filepath, sep=';', skiprows=1)
+                st.write(df)
+                insert_list = []
+                str_nomes = ""
+                ja_cadastrados = []
 
-            def csv_iterrows():
+                def csv_iterrows():
 
-                for col, row in df.iterrows():
-                    # 3-nome; 4-RA; 5-dig RA; 6-sp; 7-nascimento
-                    data_nasc_aux = (row[7]).split("/")
-                    # formata data de nascimento para o formato do MySQL aaaa-mm-dd
-                    data_nasc = f'{data_nasc_aux[2]}-{data_nasc_aux[1]}-{data_nasc_aux[0]}'
-                    insert_list.append([row[3], row[4], data_nasc])
-                    # print(f'Nome: {row[3]} - RA:{row[4]}')
-                # print(insert_list)
+                    for col, row in df.iterrows():
+                        # 3-nome; 4-RA; 5-dig RA; 6-sp; 7-nascimento
+                        data_nasc_aux = (row[7]).split("/")
+                        # formata data de nascimento para o formato do MySQL aaaa-mm-dd
+                        data_nasc = f'{data_nasc_aux[2]}-{data_nasc_aux[1]}-{data_nasc_aux[0]}'
+                        insert_list.append([row[3], row[4], data_nasc])
 
-            def query_select():
-                # colocar try exception IntegrityError - RA já cadastrado
-                print(len(insert_list))
-                ja_cadastrados_bool = False
-                for i in range(len(insert_list)):
-                    try:
-                        cursor.execute("INSERT INTO alunos(NOME, RA, data_nascimento) VALUES(%s,%s,%s)",
-                                       (insert_list[i][0], insert_list[i][1], insert_list[i][2]))
-                        cnx.commit()
-                    except mysql.connector.errors.IntegrityError:
-                        ja_cadastrados.append(insert_list[i][0])
-                        ja_cadastrados_bool = True
-                if ja_cadastrados_bool:
-                    nomes = ", ".join(ja_cadastrados)
-                    st.write(f'Aluno(s) já cadastrado(s): {nomes}')
+                def query_select():
+                    # colocar try exception IntegrityError - RA já cadastrado
+                    print(len(insert_list))
+                    ja_cadastrados_bool = False
+                    for i in range(len(insert_list)):
+                        try:
+                            cursor.execute("INSERT INTO alunos(NOME, RA, data_nascimento) VALUES(%s,%s,%s)",
+                                           (insert_list[i][0], insert_list[i][1], insert_list[i][2]))
+                            cnx.commit()
+                        except mysql.connector.errors.IntegrityError:
+                            ja_cadastrados.append(insert_list[i][0])
+                            ja_cadastrados_bool = True
+                    if ja_cadastrados_bool:
+                        nomes = ", ".join(ja_cadastrados)
+                        st.write(f'Aluno(s) já cadastrado(s): {nomes}')
 
-            csv_iterrows()
-            query_select()
-
- 
+                csv_iterrows()
+                query_select()
 
     elif option == 'Buscar':
         # INCLUIR MAIS OPÇÕES DE BUSCA, E ROTULOS PARA AS COLUNAS
@@ -232,7 +227,7 @@ def main():
                     check_name_read = st.checkbox("Nome", value=False)
 
                 if check_ra_read:
-                    ra_read = st.text_input("RA",max_chars=9)
+                    ra_read = st.text_input("RA", max_chars=9)
                     df = pd.DataFrame()
                     ra_read_button = st.button("Buscar RA")
                     if ra_read_button:
@@ -240,7 +235,20 @@ def main():
                         cursor.execute(sql)
                         myresult = cursor.fetchall()
                         df = pd.DataFrame(myresult,
-                                    columns=['RA', 'Nome do Aluno', 'Data de Nascimento'])
+                                          columns=['RA', 'Nome do Aluno', 'Data de Nascimento'])
+                    tabela = st.table()
+                    tabela.table(df)
+
+                if check_name_read:
+                    name_read = st.text_input("Nome", max_chars=9)
+                    df = pd.DataFrame()
+                    ra_read_button = st.button("Buscar RA")
+                    if ra_read_button:
+                        sql = f"SELECT ra, nome, data_nascimento FROM  alunos WHERE nome LIKE '%{name_read}%'"
+                        cursor.execute(sql)
+                        myresult = cursor.fetchall()
+                        df = pd.DataFrame(myresult,
+                                          columns=['RA', 'Nome do Aluno', 'Data de Nascimento'])
                     tabela = st.table()
                     tabela.table(df)
 
@@ -248,13 +256,13 @@ def main():
         st.subheader("Empréstimos")
         emprestimo_opcoes = st.selectbox("Operação:", ("Adicionar", "Baixa", "Busca"))
 
-
         if 'clicked' not in st.session_state:
-                st.session_state.clicked = {1:False,2:False,3:False,4:False,5:'Check aluno',6:'Check livro', #adicionar empréstimo
-                                            7:False,8:False}
-                st.session_state.disable = True
+            st.session_state.clicked = {1: False, 2: False, 3: False, 4: False, 5: 'Check aluno', 6: 'Check livro',
+                                        # adicionar empréstimo
+                                        7: False, 8: False}
+            st.session_state.disable = True
 
-            # função que atualiza o session_state para que os radio buttons não sumam depois do clique 
+        # função que atualiza o session_state para que os radio buttons não sumam depois do clique
         def clicked(button):
             if button == 5:
                 st.session_state.clicked[1] = False
@@ -266,14 +274,14 @@ def main():
                     st.session_state.disable = False
 
         if emprestimo_opcoes == 'Adicionar':
-  
+
             col_1, col_2 = st.columns(2)
-            aluno_escolhido , livro_escolhido = "", ""
-            with col_1:                    
+            aluno_escolhido, livro_escolhido = "", ""
+            with col_1:
                 aluno_por_nome = st.checkbox("Aluno por nome", on_change=clicked, args=[5], value=True)
                 if aluno_por_nome:
                     nome_aluno = st.text_input("Nome do aluno")
-                    st.button("Buscar Aluno",on_click=clicked, args=[1])
+                    st.button("Buscar Aluno", on_click=clicked, args=[1])
                     if st.session_state.clicked[1]:
                         if nome_aluno == "":
                             st.warning("nome deve ser preenchido ou desmarcado.")
@@ -282,52 +290,53 @@ def main():
                             sql = f"SELECT NOME, data_nascimento, RA FROM ALUNOS WHERE NOME LIKE '%{nome_aluno}%'"
                             cursor.execute(sql)
                             myresult = cursor.fetchall()
-                            alunos_buscados=[]
+                            alunos_buscados = []
                             for result in myresult:
                                 add_alunos_buscados = f'{result[0]} - {result[1].strftime("%d/%m/%y")} - {result[2]}'
                                 alunos_buscados.append(add_alunos_buscados)
-                        aluno_escolhido = st.radio("Selecione um aluno(Nome - Nascimento - RA):", options=alunos_buscados, on_change=clicked, args=[2])
-            
+                        aluno_escolhido = st.radio("Selecione um aluno(Nome - Nascimento - RA):",
+                                                   options=alunos_buscados, on_change=clicked, args=[2])
+
             with col_2:
                 livro_por_id = st.checkbox("Livro por ID", on_change=clicked, args=[6], value=True)
                 if livro_por_id:
                     livro_id = st.number_input("ID do livro", min_value=1, step=1)
-                    st.button("Buscar Livro",on_click=clicked, args=[3])
+                    st.button("Buscar Livro", on_click=clicked, args=[3])
                     if st.session_state.clicked[3]:
                         sql = f"SELECT ID, nome, autor FROM livros WHERE ID = {livro_id}"
                         cursor.execute(sql)
                         myresult = cursor.fetchall()
-                        livros_buscados=[]
+                        livros_buscados = []
                         for result in myresult:
                             add_livros_buscados = f'{result[0]} - {result[1]} - {result[2]}'
                             livros_buscados.append(add_livros_buscados)
-                        livro_escolhido = st.radio("Selecione um livro(ID - Nome - Autor):", options=livros_buscados,  on_change=clicked, args=[4])
-
+                        livro_escolhido = st.radio("Selecione um livro(ID - Nome - Autor):", options=livros_buscados,
+                                                   on_change=clicked, args=[4])
 
             botao_adicionar = st.button("Adicionar", disabled=st.session_state.disable)
             if st.session_state.clicked[1] and st.session_state.clicked[3]:
-           
+
                 ra_emprestimo = aluno_escolhido.split(" - ")
                 id_emprestimo = livro_escolhido.split(" - ")
                 if botao_adicionar:
                     agora = datetime.datetime.now()
                     data_emprestimo = agora.strftime('%y-%m-%d %H:%M:%S')
-                    #dia e ano invertidas no print success para facilitar leitura
-                    st.success(f'RA aluno: {ra_emprestimo[2]}, livro: {id_emprestimo[0]}, data de inclusão:{agora.strftime("%d-%m-%y %H:%M:%S")}') 
-                    sql= f"INSERT INTO emprestimos(ra_aluno, id_livro, data_emprestimo) VALUES({ra_emprestimo[2]},{id_emprestimo[0]},'{data_emprestimo}')"
+                    # dia e ano invertidas no print success para facilitar leitura
+                    st.success(
+                        f'RA aluno: {ra_emprestimo[2]}, livro: {id_emprestimo[0]}, data de inclusão:{agora.strftime("%d-%m-%y %H:%M:%S")}')
+                    sql = f"INSERT INTO emprestimos(ra_aluno, id_livro, data_emprestimo) VALUES({ra_emprestimo[2]},{id_emprestimo[0]},'{data_emprestimo}')"
                     cursor.execute(sql)
                     cnx.commit()
-                    
 
         if emprestimo_opcoes == 'Baixa':
 
             emprestimo_escolhido = ""
             nome_aluno = st.text_input("Nome do aluno")
-            st.button("Buscar Aluno",on_click=clicked, args=[7])
+            st.button("Buscar Aluno", on_click=clicked, args=[7])
             if st.session_state.clicked[7]:
                 if nome_aluno == "":
-                            st.warning("nome deve ser preenchido ou desmarcado.")
-                            all_checks = False
+                    st.warning("nome deve ser preenchido ou desmarcado.")
+                    all_checks = False
                 else:
                     sql = f'''SELECT e.id_emprestimo AS 'ID Emp', e.data_emprestimo AS 'Data Emp',
                             a.nome AS 'Nome Aluno',
@@ -345,8 +354,9 @@ def main():
                     for result in myresult:
                         add_empr_buscado = f'{result[0]} - {result[1].strftime("%d/%m/%y %H:%M:%S")} - {result[2]} - {result[3].strftime("%d/%m/%y")} - {result[4]} - {result[5]}'
                         emprestimos_buscados.append(add_empr_buscado)
-                    emprestimo_escolhido = st.radio("Selecione um empréstimo(ID - Empréstimo -  Aluno - Nascimento - Livro - Id Livro):",
-                                                     options=emprestimos_buscados,  on_change=clicked, args=[8])
+                    emprestimo_escolhido = st.radio(
+                        "Selecione um empréstimo(ID - Empréstimo -  Aluno - Nascimento - Livro - Id Livro):",
+                        options=emprestimos_buscados, on_change=clicked, args=[8])
                     give_back_button = st.button("Efetuar Devolução")
                     if give_back_button:
                         pick_id = ""
@@ -363,13 +373,8 @@ def main():
                             else:
                                 st.error(Exception)
 
-            
-
-
         if emprestimo_opcoes == 'Busca':
             pass
-
-
 
     elif option == 'Delete':
         st.subheader("Read a record")

@@ -76,7 +76,7 @@ def main():
 
             isbn_check = st.checkbox("Sem ISBN", value=True)
             if not isbn_check:
-                isbn_livro = st.text_input("ISBN do livro")
+                isbn_livro = st.text_input("ISBN do livro", max_chars=14)
             edicao_livro = st.number_input("Edição do livro", min_value=1, step=1, format="%.0d")
             # USUÁRIO clicou para adicionar livro
             if st.button("Adicionar Livro"):

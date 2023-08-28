@@ -1,5 +1,6 @@
 import mysql.connector
-from mysqlx import IntegrityError
+from mysql.connector.errors import Error
+from mysqlx import IntegrityError, InterfaceError
 import streamlit as st
 import pandas as pd
 import datetime
@@ -29,7 +30,6 @@ def query_assuntos():
     return assuntos_nomes, assuntos_list
 
 
-# cnx.close()
 
 def main():
     st.title("SALA DE LEITURA JTS 2.0")
@@ -74,7 +74,7 @@ def main():
                             assuntos_multiselect = st.multiselect("Assuntos:", assuntos_nomes,
                                                                   placeholder="Caso não encontre, marque a caixa abaixo")
 
-            isbn_check = st.checkbox("Sem ISBN", value=True)
+            isbn_check = st.checkbox("Sem ISBN", value=False)
             if not isbn_check:
                 isbn_livro = st.text_input("ISBN do livro", max_chars=14)
             edicao_livro = st.number_input("Edição do livro", min_value=1, step=1, format="%.0d")
@@ -133,8 +133,11 @@ def main():
                     ja_cadastrados_bool = False
                     for i in range(len(insert_list)):
                         try:
-                            cursor.execute("INSERT INTO alunos(NOME, RA, data_nascimento) VALUES(%s,%s,%s)",
-                                           (insert_list[i][0], insert_list[i][1], insert_list[i][2]))
+                            nome = insert_list[i][0]
+                            ra = insert_list[i][1]
+                            data_nascimento = insert_list[i][2]
+                            cursor.execute("INSERT INTO alunos(NOME, RA, data_nascimento) VALUES(%(nome)s,%(ra)s,%(data_nascimento)s)",
+                                           {'nome':nome, 'ra': ra, 'data_nascimento':data_nascimento})
                             cnx.commit()
                         except mysql.connector.errors.IntegrityError:
                             ja_cadastrados.append(insert_list[i][0])
@@ -231,8 +234,7 @@ def main():
                     df = pd.DataFrame()
                     ra_read_button = st.button("Buscar RA")
                     if ra_read_button:
-                        sql = f"SELECT ra, nome, data_nascimento FROM  alunos WHERE ra = '{ra_read}'"
-                        cursor.execute(sql)
+                        cursor.execute("SELECT ra, nome, data_nascimento FROM  alunos WHERE ra = %(ra_read)s",{'ra_read':ra_read})
                         myresult = cursor.fetchall()
                         df = pd.DataFrame(myresult,
                                           columns=['RA', 'Nome do Aluno', 'Data de Nascimento'])
@@ -287,9 +289,14 @@ def main():
                             st.warning("nome deve ser preenchido ou desmarcado.")
                             all_checks = False
                         else:
-                            sql = f"SELECT NOME, data_nascimento, RA FROM ALUNOS WHERE NOME LIKE '%{nome_aluno}%'"
-                            cursor.execute(sql)
+                            cursor.execute("CALL SearchStudentsByName(%(nome_aluno)s)",{'nome_aluno': nome_aluno})
                             myresult = cursor.fetchall()
+                            for r in myresult:
+                                print(r)
+                                try:
+                                    cursor.nextset()
+                                except mysql.connector.Error as err:
+                                    print(err.errno)
                             alunos_buscados = []
                             for result in myresult:
                                 add_alunos_buscados = f'{result[0]} - {result[1].strftime("%d/%m/%y")} - {result[2]}'
@@ -303,8 +310,8 @@ def main():
                     livro_id = st.number_input("ID do livro", min_value=1, step=1)
                     st.button("Buscar Livro", on_click=clicked, args=[3])
                     if st.session_state.clicked[3]:
-                        sql = f"SELECT ID, nome, autor FROM livros WHERE ID = {livro_id}"
-                        cursor.execute(sql)
+                        
+                        cursor.execute("SELECT ID, nome, autor FROM livros WHERE ID = %(livro_id)s",{'livro_id': livro_id})
                         myresult = cursor.fetchall()
                         livros_buscados = []
                         for result in myresult:
@@ -324,8 +331,12 @@ def main():
                     # dia e ano invertidas no print success para facilitar leitura
                     st.success(
                         f'RA aluno: {ra_emprestimo[2]}, livro: {id_emprestimo[0]}, data de inclusão:{agora.strftime("%d-%m-%y %H:%M:%S")}')
-                    sql = f"INSERT INTO emprestimos(ra_aluno, id_livro, data_emprestimo) VALUES({ra_emprestimo[2]},{id_emprestimo[0]},'{data_emprestimo}')"
-                    cursor.execute(sql)
+                    ra_aluno = ra_emprestimo[2]
+                    id_livro = id_emprestimo[0]
+                    cursor.execute("INSERT INTO emprestimos(ra_aluno, id_livro, data_emprestimo) VALUES(%(ra_aluno)s,%(id_livro)s,%(data_emprestimo)s)",
+                                   {'ra_aluno': ra_aluno,
+                                    'id_livro': id_livro,
+                                    'data_emprestimo': data_emprestimo})
                     cnx.commit()
 
         if emprestimo_opcoes == 'Baixa':
@@ -367,11 +378,9 @@ def main():
                         try:
                             cursor.execute(sql)
                             st.success("Livro devolvido com sucesso.")
-                        except Exception:
-                            if Exception == IntegrityError:
-                                st.error(f"Erro na execução do comando ao banco de dados. {Exception}")
-                            else:
-                                st.error(Exception)
+                        except mysql.connector.errors.IntegrityError as i_error:
+                                st.error(f"Erro na execução do comando ao banco de dados. {i_error.errno}")
+
 
         if emprestimo_opcoes == 'Busca':
             pass

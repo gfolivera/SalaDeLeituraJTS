@@ -108,46 +108,61 @@ def main():
                     st.write("Aperte o botão novamente para registrar o mesmo livro mais uma vez")
 
         if add_options == "Aluno(s)":
-            filepath = st.file_uploader("Arquivo CSV", accept_multiple_files=False)
+            if st.checkbox("Usar arquivo CSV",value=True):
+                filepath = st.file_uploader("Arquivo CSV", accept_multiple_files=False)
 
-            if st.button("Adicionar"):
+                if st.button("Adicionar"):
 
-                df = pd.read_csv(filepath, sep=';', skiprows=1)
-                st.write(df)
-                insert_list = []
-                str_nomes = ""
-                ja_cadastrados = []
+                    df = pd.read_csv(filepath, sep=';', skiprows=1)
+                    st.write(df)
+                    insert_list = []
+                    str_nomes = ""
+                    ja_cadastrados = []
 
-                def csv_iterrows():
+                    def csv_iterrows():
 
-                    for col, row in df.iterrows():
-                        # 3-nome; 4-RA; 5-dig RA; 6-sp; 7-nascimento
-                        data_nasc_aux = (row[7]).split("/")
-                        # formata data de nascimento para o formato do MySQL aaaa-mm-dd
-                        data_nasc = f'{data_nasc_aux[2]}-{data_nasc_aux[1]}-{data_nasc_aux[0]}'
-                        insert_list.append([row[3], row[4], data_nasc])
+                        for col, row in df.iterrows():
+                            # 3-nome; 4-RA; 5-dig RA; 6-sp; 7-nascimento
+                            data_nasc_aux = (row[7]).split("/")
+                            # formata data de nascimento para o formato do MySQL aaaa-mm-dd
+                            data_nasc = f'{data_nasc_aux[2]}-{data_nasc_aux[1]}-{data_nasc_aux[0]}'
+                            insert_list.append([row[3], row[4], data_nasc])
 
-                def query_select():
-                    # colocar try exception IntegrityError - RA já cadastrado
-                    print(len(insert_list))
+                    def query_select():
+                        # colocar try exception IntegrityError - RA já cadastrado
+                        print(len(insert_list))
+                        ja_cadastrados_bool = False
+                        for i in range(len(insert_list)):
+                            try:
+                                nome = insert_list[i][0]
+                                ra = insert_list[i][1]
+                                data_nascimento = insert_list[i][2]
+                                cursor.execute("INSERT INTO alunos(NOME, RA, data_nascimento) VALUES(%(nome)s,%(ra)s,%(data_nascimento)s)",
+                                            {'nome':nome, 'ra': ra, 'data_nascimento':data_nascimento})
+                                cnx.commit()
+                            except mysql.connector.errors.IntegrityError:
+                                ja_cadastrados.append(insert_list[i][0])
+                                ja_cadastrados_bool = True
+                        if ja_cadastrados_bool:
+                            nomes = ", ".join(ja_cadastrados)
+                            st.write(f'Aluno(s) já cadastrado(s): {nomes}')
+
+                    csv_iterrows()
+                    query_select()
+            else:
+                ra_aluno = st.text_input("RA", max_chars=14)
+                nome_aluno = st.text_input("Nome Completo", max_chars=100)
+                data_nasc = st.date_input("Data de Nascimento", format="DD/MM/YYYY",help="""Digite a data de nascimento. As barras serão
+                                          incluídas automaticamente.""")
+                if st.button("Adicionar"):
                     ja_cadastrados_bool = False
-                    for i in range(len(insert_list)):
-                        try:
-                            nome = insert_list[i][0]
-                            ra = insert_list[i][1]
-                            data_nascimento = insert_list[i][2]
-                            cursor.execute("INSERT INTO alunos(NOME, RA, data_nascimento) VALUES(%(nome)s,%(ra)s,%(data_nascimento)s)",
-                                           {'nome':nome, 'ra': ra, 'data_nascimento':data_nascimento})
-                            cnx.commit()
-                        except mysql.connector.errors.IntegrityError:
-                            ja_cadastrados.append(insert_list[i][0])
-                            ja_cadastrados_bool = True
-                    if ja_cadastrados_bool:
-                        nomes = ", ".join(ja_cadastrados)
-                        st.write(f'Aluno(s) já cadastrado(s): {nomes}')
-
-                csv_iterrows()
-                query_select()
+                    try:
+                        cursor.execute("INSERT INTO alunos(NOME, RA, data_nascimento) VALUES(%(nome)s,%(ra)s,%(data_nascimento)s)",
+                                    {'nome':nome_aluno, 'ra': ra_aluno, 'data_nascimento':data_nasc})
+                        cnx.commit()
+                    except mysql.connector.errors.IntegrityError:
+                        st.write(f'Aluno(s) já cadastrado(s): RA {ra_aluno}')
+                
 
     elif option == 'Buscar':
         # INCLUIR MAIS OPÇÕES DE BUSCA, E ROTULOS PARA AS COLUNAS
@@ -223,13 +238,8 @@ def main():
         else:
 
             with checks_container:
-                col_1, col_2 = st.columns(2)
-                with col_1:
-                    check_ra_read = st.checkbox("RA", value=False)
-                with col_2:
-                    check_name_read = st.checkbox("Nome", value=False)
-
-                if check_ra_read:
+                check_student = st.radio("Buscar por",['RA','Nome'])
+                if check_student == 'RA':
                     ra_read = st.text_input("RA", max_chars=9)
                     df = pd.DataFrame()
                     ra_read_button = st.button("Buscar RA")
@@ -238,21 +248,19 @@ def main():
                         myresult = cursor.fetchall()
                         df = pd.DataFrame(myresult,
                                           columns=['RA', 'Nome do Aluno', 'Data de Nascimento'])
-                    tabela = st.table()
-                    tabela.table(df)
+                        st.dataframe(df, hide_index=True)
 
-                if check_name_read:
+                if check_student == 'Nome':
                     name_read = st.text_input("Nome", max_chars=9)
                     df = pd.DataFrame()
-                    ra_read_button = st.button("Buscar RA")
+                    ra_read_button = st.button("Buscar Nome")
                     if ra_read_button:
-                        sql = f"SELECT ra, nome, data_nascimento FROM  alunos WHERE nome LIKE '%{name_read}%'"
-                        cursor.execute(sql)
+                        nome = name_read + '+'
+                        cursor.execute("SELECT ra, nome, data_nascimento FROM  alunos WHERE nome REGEXP %(nome)s",{'nome': nome})
                         myresult = cursor.fetchall()
                         df = pd.DataFrame(myresult,
                                           columns=['RA', 'Nome do Aluno', 'Data de Nascimento'])
-                    tabela = st.table()
-                    tabela.table(df)
+                        st.dataframe(df, hide_index=True)
 
     elif option == 'Empréstimo':
         st.subheader("Empréstimos")
@@ -380,10 +388,50 @@ def main():
                             st.success("Livro devolvido com sucesso.")
                         except mysql.connector.errors.IntegrityError as i_error:
                                 st.error(f"Erro na execução do comando ao banco de dados. {i_error.errno}")
-
+            busca_ativos = st.button("Buscar empréstimos em aberto")
+            if busca_ativos:
+                cursor.execute("""SELECT a.nome, l.nome, l.ID, e.data_emprestimo
+                                from emprestimos as e 
+                                INNER JOIN alunos as a on e.ra_aluno = a.RA 
+                                INNER JOIN livros as l on l.ID = e.id_livro
+                                where e.data_devolucao is null;""")
+                myresult = cursor.fetchall()
+                df = pd.DataFrame(myresult,
+                                          columns=['Nome do aluno', 'Nome do Livro', 'ID do Livro', 'Data do empréstimo'])
+                st.dataframe(df, hide_index=True)
 
         if emprestimo_opcoes == 'Busca':
-            pass
+            options_radio = ['Nome do Aluno','Nome do livro']
+            st.write("Histórico de Empréstimos")
+            emprestimo_radio = st.radio("Buscar por ",options_radio)
+            #busca por nome do aluno
+            if emprestimo_radio == options_radio[0]:
+                nome_aluno = st.text_input("Nome do aluno", max_chars=100)
+                if st.button("Busca por nome"):
+                    if nome_aluno == "":
+                        st.warning("preencha o nome do aluno")
+                    else:
+                        nome = nome_aluno + '+'
+                        cursor.execute("""SELECT
+                                        a.nome AS 'Nome Aluno',
+                                        l.nome AS 'Nome livro',
+                                        l.id as 'ID livro'
+                                        e.data_emprestimo AS 'Data Emp',
+                                        e.data_devolucao AS 'Data Devo'                                       
+                                        e.id_emprestimo AS 'ID Emp',
+                                        FROM emprestimos as e
+                                        INNER JOIN livros as l ON e.id_livro = l.ID
+                                        INNER JOIN alunos as a on a.RA = e.ra_aluno
+                                        WHERE a.nome REGEXP %(nome)s 
+                                        ORDER BY e.data_emprestimo;""",{'nome': nome})
+                        myresult = cursor.fetchall()
+                        df = pd.DataFrame(myresult,columns=['Aluno', 'Livro','id Livro', 'Data empréstimo','Data Devolução','ID Empréstimo'])
+                        st.dataframe(df, hide_index=True)
+            #busca por nome do livro
+            else:
+                pass
+            
+
 
     elif option == 'Delete':
         st.subheader("Read a record")

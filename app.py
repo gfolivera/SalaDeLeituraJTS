@@ -409,8 +409,6 @@ def main():
             options_radio = ['Nome do Aluno', 'Nome do livro']
             st.write("Histórico de Empréstimos")
             emprestimo_radio = st.radio("Buscar por ", options_radio)
-            # busca por nome do aluno
-            
             option_data = st.text_input(emprestimo_radio, max_chars=100)
             if st.button(f"Busca por {emprestimo_radio}"):
                 if option_data == "":
